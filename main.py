@@ -12,11 +12,9 @@ app = FastAPI(title="PASEA Backend API", version="1.5")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
-    # Connexion avec sslmode explicite pour éviter les erreurs de certificat
     return psycopg2.connect(
         DATABASE_URL,
-        sslmode='require',
-        connect_timeout=20,
+        connect_timeout=30, # On augmente le timeout à 30 secondes
         cursor_factory=RealDictCursor
     )
 
