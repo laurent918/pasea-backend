@@ -20,7 +20,12 @@ def get_db_connection():
 def read_root():
     return {"status": "online", "project": "PASEA - RDC"}
 
-@app.post("/webhooks/kobo-menages", methods=["POST"])
+# Route de secours pour éviter les erreurs 405 lors des vérifications de Kobo
+@app.get("/webhooks/kobo-menages")
+def get_webhook():
+    return {"status": "ok", "message": "API active. Envoyez vos données en POST."}
+
+@app.post("/webhooks/kobo-menages")
 async def receive_kobo_menage(request: Request):
     try:
         payload = await request.json()
@@ -44,7 +49,6 @@ async def receive_kobo_menage(request: Request):
         )
 
         # 3. Préparation du JSON pour les colonnes flexibles
-        # On exclut les champs déjà mappés en dur dans les tables
         standard_keys = ["code_menage", "village", "coordonnees_gps", "garcons_5_17", 
                          "filles_5_17", "garcons_moins_5", "filles_moins_5"]
         extras = {k: v for k, v in data.items() if k not in standard_keys}
