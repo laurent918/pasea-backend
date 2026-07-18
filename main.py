@@ -4,26 +4,44 @@ from psycopg2.extras import RealDictCursor, Json
 import os
 import logging
 import socket
+from urllib.parse import urlparse
 
 # Configuration des logs
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="PASEA Backend API", version="1.2")
+app = FastAPI(title="PASEA Backend API", version="1.3")
 
 # Connexion à la base de données
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
-    # Force l'utilisation d'IPv4 pour la connexion (via la famille d'adresses)
-    # et ajoute sslmode pour la compatibilité Supabase
-    conn_params = {
-        "dsn": DATABASE_URL,
-        "cursor_factory": RealDictCursor,
-        "connect_timeout": 15
-    }
-    # On s'assure que psycopg2 ne tente pas d'utiliser des interfaces réseau restreintes
-    return psycopg2.connect(**conn_params)
+    # Analyse de l'URL pour isoler l'hôte
+    url = urlparse(DATABASE_URL)
+    host = url.hostname
+    port = url.port or 6543
+    
+    # Force la résolution DNS en IPv4 (AF_INET) pour éviter le blocage IPv6 de Render
+    try:
+        # getaddrinfo retourne une liste de tuples, on prend le premier qui est IPv4
+        addr_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
+        ip_v4 = addr_info[0][4][0]
+        logger.info(f"Connexion forcée en IPv4 sur {ip_v4}")
+    except Exception as e:
+        logger.warning(f"Impossible de résoudre {host} en IPv4, utilisation du nom par défaut: {e}")
+        ip_v4 = host
+
+    # Connexion avec l'IP résolue
+    return psycopg2.connect(
+        dbname=url.path[1:],
+        user=url.username,
+        password=url.password,
+        host=ip_v4,
+        port=port,
+        sslmode='require',
+        connect_timeout=15,
+        cursor_factory=RealDictCursor
+    )
 
 @app.get("/")
 def read_root():
@@ -38,10 +56,10 @@ async def receive_kobo_menage(request: Request):
         payload = await request.json()
         data = payload.get("data", payload)
         
-        # Extraction
+        # 1. Extraction
         code_menage = data.get("code_menage")
         if not code_menage:
-            raise ValueError("Le champ code_menage est manquant.")
+            raise ValueError("Champ code_menage manquant")
 
         gps_raw = data.get("coordonnees_gps", "").split()
         lat = float(gps_raw[0]) if len(gps_raw) > 0 else None
@@ -58,7 +76,7 @@ async def receive_kobo_menage(request: Request):
                          "filles_5_17", "garcons_moins_5", "filles_moins_5"]
         extras = {k: v for k, v in data.items() if k not in standard_keys}
 
-        # Connexion et exécution
+        # 2. Insertion
         conn = get_db_connection()
         with conn.cursor() as cursor:
             query = """
