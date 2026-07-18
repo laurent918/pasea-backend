@@ -20,7 +20,7 @@ def get_db_connection():
 def read_root():
     return {"status": "online", "project": "PASEA - RDC"}
 
-@app.post("/webhooks/kobo-menages")
+@app.post("/webhooks/kobo-menages", methods=["POST"])
 async def receive_kobo_menage(request: Request):
     try:
         payload = await request.json()
