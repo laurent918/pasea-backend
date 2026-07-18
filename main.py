@@ -14,7 +14,12 @@ app = FastAPI(title="PASEA Backend API", version="1.1")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    # On ajoute une option pour forcer le timeout et aider la connexion
+    return psycopg2.connect(
+        DATABASE_URL, 
+        cursor_factory=RealDictCursor,
+        connect_timeout=10
+    )
 
 @app.get("/")
 def read_root():
