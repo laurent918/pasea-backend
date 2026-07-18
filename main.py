@@ -4,13 +4,13 @@ from psycopg2.extras import RealDictCursor, Json
 import os
 import logging
 
-# Configuration des logs pour suivre les erreurs sur Render
+# Configuration des logs
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="PASEA Backend API", version="1.0")
+app = FastAPI(title="PASEA Backend API", version="1.1")
 
-# Connexion à la base de données via la variable d'environnement définie sur Render
+# Connexion à la base de données
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
@@ -20,13 +20,14 @@ def get_db_connection():
 def read_root():
     return {"status": "online", "project": "PASEA - RDC"}
 
-# Route de secours pour éviter les erreurs 405 lors des vérifications de Kobo
-@app.get("/webhooks/kobo-menages")
-def get_webhook():
-    return {"status": "ok", "message": "API active. Envoyez vos données en POST."}
-
-@app.post("/webhooks/kobo-menages")
+# Route unique acceptant GET et POST avec gestion du slash final
+@app.api_route("/webhooks/kobo-menages/", methods=["GET", "POST"])
 async def receive_kobo_menage(request: Request):
+    # Réponse pour les vérifications de Kobo (GET)
+    if request.method == "GET":
+        return {"status": "ok", "message": "Webhook prêt."}
+    
+    # Traitement des données (POST)
     try:
         payload = await request.json()
         data = payload.get("data", payload)
@@ -35,12 +36,12 @@ async def receive_kobo_menage(request: Request):
         code_menage = data.get("code_menage")
         code_village = data.get("village")
         
-        # Gestion GPS (Kobo renvoie "lat long alt acc")
+        # Gestion GPS
         gps_raw = data.get("coordonnees_gps", "").split()
         lat = float(gps_raw[0]) if len(gps_raw) > 0 else None
         lon = float(gps_raw[1]) if len(gps_raw) > 1 else None
         
-        # 2. Calculs et préparation
+        # 2. Calculs
         total_membres = (
             int(data.get("garcons_5_17", 0)) + 
             int(data.get("filles_5_17", 0)) + 
@@ -48,7 +49,7 @@ async def receive_kobo_menage(request: Request):
             int(data.get("filles_moins_5", 0))
         )
 
-        # 3. Préparation du JSON pour les colonnes flexibles
+        # 3. Préparation JSON extras
         standard_keys = ["code_menage", "village", "coordonnees_gps", "garcons_5_17", 
                          "filles_5_17", "garcons_moins_5", "filles_moins_5"]
         extras = {k: v for k, v in data.items() if k not in standard_keys}
