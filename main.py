@@ -28,7 +28,7 @@ def get_db_connection():
     return psycopg2.connect(
         dbname="postgres",
         user="postgres",
-        password="MBLjcmk@2026", # REMPLACEZ PAR VOTRE VRAI MOT DE PASSE
+        password="MBLjcmk@2026", 
         host=ipv4_only, 
         port=port,
         sslmode='require',
