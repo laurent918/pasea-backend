@@ -14,10 +14,10 @@ def get_db_connection():
         dbname=os.getenv("DB_NAME", "postgres"),
         user=os.getenv("DB_USER", "postgres"),
         password=os.getenv("DB_PASS"),
-        host=os.getenv("DB_HOST", "104.18.38.10"),
-        port=os.getenv("DB_PORT", "5432"),
-        sslmode='require',
-        connect_timeout=10,
+        host=os.getenv("DB_HOST"), 
+        port=os.getenv("DB_PORT", "6543"), # Port du Pooler
+        sslmode='require', # Obligatoire pour Supabase Pooler
+        connect_timeout=20, # On augmente un peu la patience du script
         cursor_factory=RealDictCursor
     )
 
