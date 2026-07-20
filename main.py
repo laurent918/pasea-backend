@@ -4,20 +4,25 @@ from psycopg2.extras import RealDictCursor, Json
 import os
 import logging
 
+# Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="PASEA Backend API")
 
 def get_db_connection():
+    """
+    Connexion simplifiée utilisant la variable d'environnement DATABASE_URL.
+    Cette variable contient déjà le host, le port, l'utilisateur et le mot de passe.
+    """
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise Exception("La variable DATABASE_URL n'est pas configurée.")
+        
     return psycopg2.connect(
-        dbname=os.getenv("DB_NAME", "postgres"),
-        user=os.getenv("DB_USER", "postgres"),
-        password=os.getenv("DB_PASS"),
-        host=os.getenv("DB_HOST"), 
-        port=os.getenv("DB_PORT", "6543"), # Port du Pooler
-        sslmode='require', # Obligatoire pour Supabase Pooler
-        connect_timeout=20, # On augmente un peu la patience du script
+        database_url, 
+        sslmode='require', 
+        connect_timeout=20, 
         cursor_factory=RealDictCursor
     )
 
@@ -59,7 +64,6 @@ async def receive_kobo_menage(request: Request):
         return {"status": "success"}
 
     except Exception as e:
-        # En cas d'erreur, on enregistre dans la nouvelle table kobo_error_logs
         logger.error(f"Erreur d'insertion : {e}")
         try:
             conn = get_db_connection()
