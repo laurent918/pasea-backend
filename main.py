@@ -117,3 +117,42 @@ async def receive_kobo_menage(request: Request):
 @app.get("/")
 def read_root():
     return {"status": "online", "message": "PASEA Backend API est opérationnelle."}
+
+@app.get("/api/stats/globales")
+def get_global_stats():
+    """Fournit les indicateurs clés (KPIs) pour les bailleurs et l'État"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_menages,
+                    SUM(total_membres_menage) as total_beneficiaires,
+                    SUM(garcons_moins_5 + filles_moins_5) as total_enfants_moins_5,
+                    SUM(CASE WHEN nbre_latrines_hygieniques > 0 THEN 1 ELSE 0 END) as menages_avec_latrines_hygieniques,
+                    SUM(CASE WHEN lave_mains_fonctionnel > 0 THEN 1 ELSE 0 END) as menages_avec_lave_mains,
+                    SUM(CASE WHEN environnement_propre ILIKE 'oui' OR environnement_propre ILIKE '1' THEN 1 ELSE 0 END) as menages_environnement_propre
+                FROM menages;
+            """)
+            stats = cursor.fetchone()
+        conn.close()
+        return {"status": "success", "data": stats}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/cartographie/menages")
+def get_menages_gps():
+    """Renvoie la liste des ménages avec leurs coordonnées GPS pour la carte interactive"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT code_menage, code_village, nom_chef_menage, latitude, longitude, nbre_latrines_hygieniques, presence_caca
+                FROM menages
+                WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+            """)
+            menages = cursor.fetchall()
+        conn.close()
+        return {"status": "success", "count": len(menages), "data": menages}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
