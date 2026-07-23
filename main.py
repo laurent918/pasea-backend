@@ -156,3 +156,73 @@ def get_menages_gps():
         return {"status": "success", "count": len(menages), "data": menages}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.api_route("/webhooks/kobo-generales/", methods=["POST"])
+async def receive_kobo_generales(request: Request):
+    payload = await request.json()
+    data = payload.get("data", payload)
+    
+    try:
+        query = """
+            INSERT INTO donnees_generales (
+                code_village, province, zone_sante, aire_sante, nom_village, bailleur, partenaires,
+                date_pre_declenchement, nbre_menages_village, ecoles_existantes, ecoles_latrines,
+                eglises_existantes, eglises_latrines, date_declenchement, marche_honte, 
+                comite_assainissement, plan_action, carte_parlante, nbre_hommes, nbre_femmes,
+                filles_moins_18, garcons_moins_18, enfants_moins_5, sensibilise_odf,
+                date_suivi_post, latrines_construites, latrines_lave_mains, parcelles_propres,
+                trous_ordures, date_certification, est_certifie_odf
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (code_village) DO UPDATE SET 
+                bailleur = EXCLUDED.bailleur,
+                partenaires = EXCLUDED.partenaires,
+                date_pre_declenchement = EXCLUDED.date_pre_declenchement,
+                nbre_menages_village = EXCLUDED.nbre_menages_village,
+                date_declenchement = EXCLUDED.date_declenchement,
+                marche_honte = EXCLUDED.marche_honte,
+                comite_assainissement = EXCLUDED.comite_assainissement,
+                plan_action = EXCLUDED.plan_action,
+                carte_parlante = EXCLUDED.carte_parlante,
+                date_suivi_post = EXCLUDED.date_suivi_post,
+                latrines_construites = EXCLUDED.latrines_construites,
+                latrines_lave_mains = EXCLUDED.latrines_lave_mains,
+                parcelles_propres = EXCLUDED.parcelles_propres,
+                trous_ordures = EXCLUDED.trous_ordures,
+                date_certification = EXCLUDED.date_certification,
+                est_certifie_odf = EXCLUDED.est_certifie_odf;
+        """
+        
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(query, (
+                data.get("code_village"), data.get("province"), data.get("zone_sante"), 
+                data.get("aire_sante"), data.get("nom_village"), data.get("bailleur"), data.get("partenaires"),
+                data.get("date_pre_declenchement"), data.get("nbre_menages_village", 0),
+                data.get("ecoles_existantes", 0), data.get("ecoles_latrines", 0),
+                data.get("eglises_existantes", 0), data.get("eglises_latrines", 0),
+                data.get("date_declenchement"), data.get("marche_honte"), data.get("comite_assainissement"),
+                data.get("plan_action"), data.get("carte_parlante"), data.get("nbre_hommes", 0),
+                data.get("nbre_femmes", 0), data.get("filles_moins_18", 0), data.get("garcons_moins_18", 0),
+                data.get("enfants_moins_5", 0), data.get("sensibilise_odf"), data.get("date_suivi_post"),
+                data.get("latrines_construites", 0), data.get("latrines_lave_mains", 0),
+                data.get("parcelles_propres", 0), data.get("trous_ordures", 0),
+                data.get("date_certification"), data.get("est_certifie_odf", 0)
+            ))
+            conn.commit()
+        conn.close()
+        return {"status": "success", "message": "Données générales du village enregistrées."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/stats/generales")
+def get_stats_generales():
+    """Renvoie les données globales de déclenchement et certification par village"""
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM donnees_generales;")
+            rows = cursor.fetchall()
+        conn.close()
+        return {"status": "success", "data": rows}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
